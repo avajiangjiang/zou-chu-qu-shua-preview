@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小程序预览 v3 · 粗门式结构</title>
+<style>
+  :root{
+    --paper:#FAF6EF; --card:#FFFFFF; --ink:#2B2118; --ink2:#6E6152;
+    --muted:#A2937F; --line:#EDE4D6; --primary:#7A4E24; --primary-soft:#FBF3E6;
+    --shadow:rgba(90,65,40,.10);
+  }
+  body.theme-red{ --primary:#8C3B32; --primary-soft:#FBEDE7; --shadow:rgba(120,55,40,.10); }
+  body.theme-cinnabar{ --primary:#A2382C; --primary-soft:#FBEDE7; --shadow:rgba(120,55,40,.10); }
+  body.theme-green{ --primary:#3F6E5C; --primary-soft:#EBF2ED; --shadow:rgba(45,80,65,.10); }
+  body.theme-blue{ --primary:#3A5A7E; --primary-soft:#EAF0F6; --shadow:rgba(45,70,105,.10); }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{font-family:-apple-system,'PingFang SC',sans-serif;background:#F3EEE5;color:var(--ink);
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:26px 16px 50px;}
+  .hd{width:100%;max-width:430px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px;}
+  .hd h1{font-size:17px;letter-spacing:1px;}
+  .hd p{font-size:12px;color:#8C7C6B;margin-top:3px;}
+  .themes{display:flex;gap:8px;}
+  .themes button{font-size:12px;padding:7px 13px;border-radius:20px;border:1px solid var(--line);
+    background:#fff;color:#6E6152;cursor:pointer;}
+  .themes button.on{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600;}
+
+  .phone{width:390px;max-width:96vw;height:800px;background:var(--paper);border-radius:36px;
+    box-shadow:0 0 0 10px #fff,0 18px 50px rgba(90,65,40,.18);overflow:hidden;position:relative;
+    display:flex;flex-direction:column;}
+  .sb{flex:none;height:32px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 22px;font-size:12px;color:var(--muted);}
+  .screen{flex:1;position:relative;overflow:hidden;}
+  .page{position:absolute;inset:0;display:none;flex-direction:column;overflow-y:auto;padding:0 0 100px;}
+  .page.on{display:block;}
+  .page::-webkit-scrollbar{width:0;}
+
+  /* 顶栏：城市 + 搜索 */
+  .topbar{display:flex;align-items:center;gap:10px;padding:4px 16px 0;}
+  .city{font-size:16px;font-weight:700;white-space:nowrap;}
+  .city small{font-size:11px;color:var(--primary);}
+  .search{flex:1;height:42px;border-radius:22px;background:#fff;border:1px solid var(--line);
+    display:flex;align-items:center;gap:7px;padding:0 15px;font-size:15px;color:var(--muted);}
+
+  /* 分类：两行 */
+  .cats{display:flex;gap:9px;overflow-x:auto;padding:14px 16px 0;}
+  .cats::-webkit-scrollbar{height:0;}
+  .cat{flex:none;display:flex;align-items:center;gap:6px;font-size:15px;font-weight:600;
+    padding:10px 16px;border-radius:22px;background:#fff;border:1px solid var(--line);
+    color:var(--ink2);cursor:pointer;}
+  .cat.on{background:var(--primary);border-color:var(--primary);color:#fff;}
+
+  /* 工具条 */
+  .bar-line{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 0;}
+  .bar-line .say{font-size:13px;color:var(--muted);letter-spacing:.5px;}
+  .bar-line .sort{display:flex;gap:6px;}
+  .bar-line .sort div{font-size:12px;color:var(--ink2);background:#fff;border:1px solid var(--line);
+    padding:6px 12px;border-radius:16px;cursor:pointer;}
+  .bar-line .sort div.on{color:var(--primary);border-color:var(--primary);background:var(--primary-soft);font-weight:600;}
+
+  /* 本周推荐 */
+  .hero{margin:12px 16px 0;border-radius:18px;overflow:hidden;cursor:pointer;position:relative;
+    box-shadow:0 4px 16px var(--shadow);}
+  .hero .pic{height:120px;background:linear-gradient(135deg,#F2C879,#D99A3D);display:flex;
+    align-items:center;justify-content:center;font-size:52px;}
+  .hero .txt{padding:12px 14px;background:#fff;}
+  .hero .t1{font-size:12px;color:var(--primary);font-weight:700;letter-spacing:1px;}
+  .hero .t2{font-size:18px;font-weight:700;margin-top:5px;}
+  .hero .t3{font-size:13px;color:var(--ink2);margin-top:6px;}
+
+  /* 活动卡：左图右文 */
+  .card{display:flex;gap:12px;background:var(--card);border-radius:16px;padding:11px;
+    margin:12px 16px 0;box-shadow:0 2px 10px var(--shadow);cursor:pointer;}
+  .thumb{width:104px;height:134px;border-radius:12px;flex:none;display:flex;align-items:center;
+    justify-content:center;font-size:38px;position:relative;overflow:hidden;}
+  .thumb .chip{position:absolute;left:0;bottom:0;right:0;font-size:11px;color:#fff;font-weight:600;
+    background:rgba(43,33,24,.45);text-align:center;padding:4px 0;letter-spacing:.5px;}
+  .info{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .dt{font-size:13px;font-weight:700;color:var(--primary);letter-spacing:.3px;}
+  .dt span{font-weight:600;color:var(--ink2);font-size:12px;margin-left:5px;}
+  .ti{font-size:17px;font-weight:700;margin-top:6px;line-height:1.35;}
+  .mt{font-size:13px;color:var(--ink2);margin-top:7px;line-height:1.6;}
+  .mt b{color:var(--ink);font-weight:600;}
+  .qf{margin-top:auto;padding-top:9px;}
+  .bar{height:6px;border-radius:4px;background:#F1E8DA;overflow:hidden;}
+  .bar i{display:block;height:100%;border-radius:4px;background:var(--primary);}
+  .qf span{display:block;font-size:12px;color:var(--ink2);margin-top:6px;}
+
+  /* tabbar */
+  .tabbar{position:absolute;left:0;right:0;bottom:0;height:76px;background:#fff;border-top:1px solid var(--line);
+    display:flex;align-items:center;z-index:20;}
+  .tabbar.hidden{display:none;}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;}
+  .tab .ico{font-size:20px;line-height:1;color:var(--muted);}
+  .tab .t{font-size:13px;color:var(--muted);}
+  .tab.on .ico,.tab.on .t{color:var(--primary);font-weight:700;}
+
+  /* 详情页 */
+  .dwrap{padding:4px 18px 100px;}
+  .back{font-size:15px;color:var(--primary);letter-spacing:.5px;cursor:pointer;margin-top:8px;}
+  .detail-cover{height:170px;border-radius:16px;display:flex;align-items:center;justify-content:center;
+    font-size:56px;margin-top:12px;box-shadow:0 2px 10px var(--shadow);}
+  .d-title{font-size:23px;font-weight:700;line-height:1.4;margin-top:14px;}
+  .rows{background:var(--card);border-radius:14px;margin-top:14px;box-shadow:0 2px 10px var(--shadow);overflow:hidden;}
+  .row{display:flex;padding:14px 15px;border-bottom:1px solid #F5EDE2;align-items:flex-start;}
+  .row:last-child{border-bottom:none;}
+  .row .lbl{width:70px;font-size:14px;color:var(--muted);flex:none;padding-top:2px;}
+  .row .val{font-size:16px;line-height:1.6;}
+  .row .val b{font-size:17px;}
+  .pill{display:inline-block;margin-top:7px;background:var(--primary-soft);color:var(--primary);
+    font-size:14px;font-weight:600;padding:6px 13px;border-radius:20px;cursor:pointer;}
+  .fee{margin-top:14px;background:var(--primary-soft);border-radius:14px;padding:14px 15px;
+    font-size:15px;color:var(--primary);line-height:1.7;font-weight:600;}
+  .sec-t{font-size:17px;font-weight:700;margin-top:20px;letter-spacing:1px;}
+  .howto{background:var(--card);border-radius:14px;margin-top:10px;box-shadow:0 2px 10px var(--shadow);padding:15px 16px;}
+  .howto p{font-size:15px;line-height:1.8;color:var(--ink2);}
+  .flow{margin-top:12px;}
+  .flow .f{display:flex;gap:11px;padding:7px 0;align-items:flex-start;}
+  .flow .dot{width:9px;height:9px;border-radius:50%;background:var(--primary);margin-top:8px;flex:none;}
+  .flow .f b{font-size:15px;}
+  .flow .f span{display:block;font-size:14px;color:var(--ink2);margin-top:2px;line-height:1.5;}
+  .gallery{display:flex;gap:9px;margin-top:10px;overflow-x:auto;}
+  .gallery::-webkit-scrollbar{height:0;}
+  .ph{flex:none;width:132px;height:96px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+    font-size:30px;box-shadow:0 2px 8px var(--shadow);}
+
+  .footer{position:absolute;left:0;right:0;bottom:0;padding:12px 18px 20px;background:linear-gradient(transparent,var(--paper) 35%);z-index:15;}
+  .footer .duo{display:flex;gap:10px;margin-bottom:10px;}
+  .half{flex:1;height:46px;border-radius:24px;background:#fff;border:1.5px solid var(--line);color:var(--primary);
+    font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;}
+  .btn{height:56px;border-radius:30px;background:var(--primary);color:#fff;font-size:19px;font-weight:700;
+    letter-spacing:2px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+    box-shadow:0 5px 14px var(--shadow);}
+  .btn.ghost{background:#fff;color:var(--primary);border:1.5px solid var(--line);box-shadow:none;}
+  .btn.small{height:46px;font-size:16px;letter-spacing:1px;}
+
+  .sum{background:var(--card);border-radius:14px;margin-top:16px;box-shadow:0 2px 10px var(--shadow);padding:6px 16px;}
+  .sum .row{padding:13px 0;}
+  .price{display:flex;justify-content:space-between;align-items:center;padding:16px 0 14px;}
+  .price .l{font-size:16px;color:var(--ink2);}
+  .price .r{font-size:22px;font-weight:700;color:var(--primary);}
+  .tip{font-size:13px;color:var(--muted);line-height:1.8;margin-top:14px;text-align:center;}
+
+  .okwrap{display:flex;flex-direction:column;align-items:center;text-align:center;padding-top:64px;}
+  .okc{width:76px;height:76px;border-radius:50%;background:#EEF3EC;color:#4E7A54;font-size:36px;line-height:76px;}
+  .okt{font-size:26px;font-weight:700;letter-spacing:3px;margin-top:18px;}
+  .oks{font-size:15px;color:var(--ink2);margin-top:12px;line-height:1.9;}
+  .oktip{margin-top:22px;background:var(--card);border-radius:14px;padding:16px;font-size:15px;color:var(--primary);
+    line-height:1.8;box-shadow:0 2px 10px var(--shadow);font-weight:600;}
+
+  .mine{padding:0 18px;}
+  .pt{font-size:24px;font-weight:700;letter-spacing:3px;margin-top:14px;}
+  .minecard{background:var(--card);border-radius:14px;margin-top:14px;box-shadow:0 2px 10px var(--shadow);
+    padding:15px 16px;display:flex;align-items:center;gap:12px;}
+  .avatar{width:46px;height:46px;border-radius:50%;background:var(--primary-soft);color:var(--primary);
+    display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;flex:none;}
+  .tag{font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;flex:none;}
+  .tag.paid{color:#4E7A54;background:#EEF3EC;}
+  .tag.free{color:#8C7C6B;background:#F5F0E7;}
+  .adm-row{display:flex;align-items:center;gap:11px;padding:13px 0;border-bottom:1px solid #F5EDE2;}
+  .adm-row:last-child{border-bottom:none;}
+  .adm-row .nm{flex:1;}
+  .adm-row .nm b{font-size:16px;}
+  .adm-row .nm span{display:block;font-size:13px;color:var(--muted);margin-top:3px;}
+  .act{font-size:13px;color:var(--primary);background:var(--primary-soft);padding:7px 12px;border-radius:18px;
+    font-weight:600;cursor:pointer;flex:none;}
+  .adm-note{margin-top:14px;font-size:13px;color:var(--muted);line-height:1.8;background:var(--card);
+    border-radius:14px;padding:13px 15px;box-shadow:0 2px 10px var(--shadow);}
+  .pub-fields{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .pub-fields span{font-size:13px;color:var(--primary);background:var(--primary-soft);padding:6px 12px;border-radius:16px;font-weight:600;}
+  .adm-entry{margin-top:26px;font-size:13px;color:var(--muted);text-align:center;cursor:pointer;padding:10px;}
+  .adm-entry b{color:var(--primary);font-weight:600;}
+
+  /* 消息页 */
+  .dot-badge{position:absolute;top:6px;right:50%;margin-right:-24px;width:9px;height:9px;border-radius:50%;
+    background:#C0392B;display:none;}
+  .dot-badge.on{display:block;}
+  .msg-card{background:var(--card);border-radius:16px;padding:15px 16px;margin:12px 16px 0;
+    box-shadow:0 2px 10px var(--shadow);display:flex;gap:13px;cursor:pointer;}
+  .msg-card.read{opacity:.72;}
+  .msg-ico{width:46px;height:46px;border-radius:14px;background:var(--primary-soft);flex:none;
+    display:flex;align-items:center;justify-content:center;font-size:22px;}
+  .msg-bd{flex:1;min-width:0;}
+  .msg-t{font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px;}
+  .msg-new{font-size:11px;color:#fff;background:#C0392B;border-radius:10px;padding:2px 8px;font-weight:600;flex:none;}
+  .msg-s{font-size:14px;color:var(--ink2);margin-top:5px;line-height:1.6;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .msg-d{font-size:12px;color:var(--muted);margin-top:6px;}
+
+  .toast{position:absolute;left:50%;bottom:110px;transform:translateX(-50%);background:rgba(43,33,24,.88);
+    color:#fff;font-size:14px;padding:11px 20px;border-radius:24px;white-space:nowrap;opacity:0;
+    transition:opacity .25s;z-index:99;pointer-events:none;max-width:86%;text-align:center;}
+  .toast.show{opacity:1;}
+  .loading{position:absolute;inset:0;background:rgba(43,33,24,.45);display:none;align-items:center;
+    justify-content:center;z-index:50;}
+  .loading.on{display:flex;}
+  .loading .box{background:#fff;border-radius:16px;padding:22px 30px;font-size:15px;font-weight:600;color:var(--ink);}
+</style>
+</head>
+<body class="theme-red">
+
+<div class="hd">
+  <div>
+    <h1>「走，出去耍」· 宫墙红 · 最终预览</h1>
+    <p>顶部搜索 + 分类 + 左图右文卡片 + 底部四格（活动/消息/＋/我的）。点分类可筛。</p>
+  </div>
+  <div class="themes">
+    <button data-t="">茶褐</button>
+    <button data-t="theme-green">青碧绿</button>
+    <button data-t="theme-blue">黛蓝</button>
+    <button data-t="theme-red" class="on">宫墙红</button>
+    <button data-t="theme-cinnabar">朱砂</button>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="sb"><span>9:41</span><span>●●● 5G ▮</span></div>
+
+  <div class="screen">
+
+    <!-- ① 首页 -->
+    <div class="page on" id="p-list">
+      <div class="topbar">
+        <div class="city">成都 <small>▾</small></div>
+        <div class="search">🔍 搜活动，比如「银杏」</div>
+      </div>
+
+      <div class="cats">
+        <div class="cat on" data-c="all">🔥 全部</div>
+        <div class="cat" data-c="walk">🍂 户外走走</div>
+        <div class="cat" data-c="art">📷 摄影书画</div>
+        <div class="cat" data-c="sing">🎵 唱歌跳舞</div>
+      </div>
+      <div class="cats" style="padding-top:9px;">
+        <div class="cat" data-c="health">🌤️ 太极养生</div>
+        <div class="cat" data-c="tea">🍵 喝茶聊天</div>
+        <div class="cat" data-c="hand">🧶 手工手艺</div>
+        <div class="cat" data-c="read">📖 读书看报</div>
+      </div>
+
+      <div class="bar-line">
+        <div class="say">看看这周大家在忙什么</div>
+        <div class="sort">
+          <div class="on">按时间</div>
+          <div onclick="toast('演示：按离我远近排序')">离我近</div>
+        </div>
+      </div>
+
+      <!-- 本周推荐 -->
+      <div class="hero" onclick="go('p-detail')">
+        <div class="pic">🍂</div>
+        <div class="txt">
+          <div class="t1">本周推荐 · 还剩 8 个位置</div>
+          <div class="t2">人民公园看银杏</div>
+          <div class="t3">周三 上午 9:30　东门集合　25 元</div>
+        </div>
+      </div>
+
+      <div id="elist">
+        <div class="card" data-cat="walk" onclick="go('p-detail')">
+          <div class="thumb" style="background:linear-gradient(135deg,#F2C879,#D99A3D);">🍂<div class="chip">户外走走</div></div>
+          <div class="info">
+            <div class="dt">11/12 周三 9:30<span>今天</span></div>
+            <div class="ti">人民公园看银杏</div>
+            <div class="mt">📍 人民公园东门 · <b>1.2km</b><br>🙋 王老师带队</div>
+            <div class="qf"><div class="bar"><i style="width:60%"></i></div><span>已报 12，还剩 8 个位置</span></div>
+          </div>
+        </div>
+
+        <div class="card" data-cat="art" onclick="go('p-detail2')">
+          <div class="thumb" style="background:linear-gradient(135deg,#B9C6D8,#7E93AD);">📷<div class="chip">摄影书画</div></div>
+          <div class="info">
+            <div class="dt">11/19 周三 14:30<span>下周三</span></div>
+            <div class="ti">我收藏的 30 张老成都照片</div>
+            <div class="mt">📍 青羊社区活动室 · <b>2.8km</b><br>🙋 李老师主讲</div>
+            <div class="qf"><div class="bar"><i style="width:40%"></i></div><span>已报 8，还剩 12 个位置</span></div>
+          </div>
+        </div>
+
+        <div class="card" data-cat="sing" onclick="go('p-detail')">
+          <div class="thumb" style="background:linear-gradient(135deg,#E8B4B8,#C97B84);">🎵<div class="chip">唱歌跳舞</div></div>
+          <div class="info">
+            <div class="dt">11/13 周四 9:00<span>明天</span></div>
+            <div class="ti">合唱班 · 这周唱《茉莉花》</div>
+            <div class="mt">📍 社区文化站二楼 · <b>0.9km</b><br>🙋 会哼就能来</div>
+            <div class="qf"><div class="bar"><i style="width:60%"></i></div><span>已报 15，还剩 10 个位置</span></div>
+          </div>
+        </div>
+
+        <div class="card" data-cat="health" onclick="go('p-detail')">
+          <div class="thumb" style="background:linear-gradient(135deg,#BBD8C0,#7FA98A);">🌤️<div class="chip">太极养生</div></div>
+          <div class="info">
+            <div class="dt">11/14 周五 7:40<span>后天</span></div>
+            <div class="ti">太极晨练小队</div>
+            <div class="mt">📍 浣花溪公园北门 · <b>1.8km</b><br>🙋 零基础跟着比划</div>
+            <div class="qf"><div class="bar"><i style="width:40%"></i></div><span>已报 6，还剩 9 个位置</span></div>
+          </div>
+        </div>
+
+        <div class="card" data-cat="tea" onclick="go('p-detail')">
+          <div class="thumb" style="background:linear-gradient(135deg,#D8C6A5,#AC9066);">🍵<div class="chip">喝茶聊天</div></div>
+          <div class="info">
+            <div class="dt">11/22 周六 14:00<span>下周六</span></div>
+            <div class="ti">冬日围炉茶话会</div>
+            <div class="mt">📍 鹤鸣茶社 · <b>1.3km</b><br>🙋 一盖碗茶摆一下午</div>
+            <div class="qf"><div class="bar"><i style="width:56%"></i></div><span>已报 9，还剩 7 个位置</span></div>
+          </div>
+        </div>
+
+        <div class="card" data-cat="hand" onclick="go('p-detail')">
+          <div class="thumb" style="background:linear-gradient(135deg,#DEC7E0,#A88CB0);">🧶<div class="chip">手工手艺</div></div>
+          <div class="info">
+            <div class="dt">11/21 周五 14:00<span>下周五</span></div>
+            <div class="ti">毛线编织 · 织条围巾过冬</div>
+            <div class="mt">📍 社区活动室 · <b>2.8km</b><br>🙋 线自带，针我们备</div>
+            <div class="qf"><div class="bar"><i style="width:33%"></i></div><span>已报 5，还剩 10 个位置</span></div>
+          </div>
+        </div>
+
+        <div class="card" data-cat="read" onclick="go('p-detail')">
+          <div class="thumb" style="background:linear-gradient(135deg,#C9D4C0,#8C9E85);">📖<div class="chip">读书看报</div></div>
+          <div class="info">
+            <div class="dt">11/24 周一 15:00<span>下周一</span></div>
+            <div class="ti">每月一本书 · 这次聊《活着》</div>
+            <div class="mt">📍 区图书馆小厅 · <b>3.4km</b><br>🙋 没读完也欢迎来</div>
+            <div class="qf"><div class="bar"><i style="width:40%"></i></div><span>已报 8，还剩 12 个位置</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="height:12px"></div>
+    </div>
+
+    <!-- ② 详情 -->
+    <div class="page" id="p-detail">
+      <div class="dwrap">
+        <div class="back" onclick="go('p-list')">← 返回</div>
+        <div class="detail-cover" style="background:linear-gradient(135deg,#F2C879,#D99A3D);">🍂</div>
+        <div class="d-title">人民公园看银杏</div>
+        <div class="rows">
+          <div class="row"><div class="lbl">时间</div><div class="val">11月12日 周三<br><b>上午 9:30 — 11:00</b></div></div>
+          <div class="row"><div class="lbl">集合地点</div><div class="val">人民公园东门<br><span class="pill" onclick="toast('演示：打开地图，跟着导航走到集合点')">🗺️ 打开地图导航</span></div></div>
+          <div class="row"><div class="lbl">带什么</div><div class="val">一双好走的鞋、水杯</div></div>
+          <div class="row"><div class="lbl">谁带队</div><div class="val">王老师 · 退休语文教师</div></div>
+        </div>
+
+        <div class="sec-t">这场怎么玩</div>
+        <div class="howto">
+          <p>银杏黄得正好。我们东门集合，沿着银杏道慢慢走，想拍照的尽管拍，走到茶铺坐下来喝口茶、摆摆龙门阵。不赶时间，量力而行，走到哪儿算哪儿。</p>
+          <div class="flow">
+            <div class="f"><div class="dot"></div><div><b>9:15　东门集合</b><span>找到举着小旗子的组织者，报个名字</span></div></div>
+            <div class="f"><div class="dot"></div><div><b>9:30　出发逛银杏道</b><span>慢慢走，边走边拍，约四十分钟</span></div></div>
+            <div class="f"><div class="dot"></div><div><b>10:15　茶铺坐坐</b><span>点杯盖碗茶（自理约15元），自由聊天</span></div></div>
+            <div class="f"><div class="dot"></div><div><b>11:00　散场</b><span>想回的回，想留的留，就近约午饭</span></div></div>
+          </div>
+        </div>
+
+        <div class="sec-t">往期留影</div>
+        <div class="gallery">
+          <div class="ph" style="background:linear-gradient(135deg,#F2C879,#C97B3D);">🍂</div>
+          <div class="ph" style="background:linear-gradient(135deg,#BBD8C0,#7FA98A);">🌳</div>
+          <div class="ph" style="background:linear-gradient(135deg,#D8C6A5,#AC9066);">🍵</div>
+          <div class="ph" style="background:linear-gradient(135deg,#B9C6D8,#7E93AD);">📷</div>
+        </div>
+
+        <div class="fee">费用 25 元（含茶水）<br><span style="color:#4E7A54;">活动前一天取消，全额退</span></div>
+        <div style="height:10px"></div>
+      </div>
+      <div class="footer">
+        <div class="duo">
+          <div class="half" onclick="toast('演示：联系组织者（打电话或留言）')">💬 咨询</div>
+          <div class="half" onclick="toast('演示：转发到微信好友或群里')">↗ 分享</div>
+        </div>
+        <div class="btn" onclick="go('p-pay')">我要来 · 付 25 元</div>
+      </div>
+    </div>
+
+    <!-- ③ 免费活动详情 -->
+    <div class="page" id="p-detail2">
+      <div class="dwrap">
+        <div class="back" onclick="go('p-list')">← 返回</div>
+        <div class="detail-cover" style="background:linear-gradient(135deg,#B9C6D8,#7E93AD);">📷</div>
+        <div class="d-title">我收藏的 30 张老成都照片</div>
+        <div class="rows">
+          <div class="row"><div class="lbl">时间</div><div class="val">11月19日 周三<br><b>下午 2:30 — 4:00</b></div></div>
+          <div class="row"><div class="lbl">集合地点</div><div class="val">青羊社区活动室<br><span class="pill" onclick="toast('演示：打开地图，跟着导航走到集合点')">🗺️ 打开地图导航</span></div></div>
+          <div class="row"><div class="lbl">带什么</div><div class="val">有老照片愿意带几张更好</div></div>
+        </div>
+        <div class="sec-t">这场怎么玩</div>
+        <div class="howto">
+          <p>收藏了三十年老成都照片，挑三十张最舍不得的，一张一张讲给你听：拍的地方你一定认得，但样子多半变了。也欢迎带你的老照片来，我们一起看图说话。</p>
+          <div class="flow">
+            <div class="f"><div class="dot"></div><div><b>2:30　开场看图</b><span>投影放照片，讲拍摄背后的故事</span></div></div>
+            <div class="f"><div class="dot"></div><div><b>3:15　你的照片时间</b><span>谁带了照片谁来讲，讲什么都行</span></div></div>
+            <div class="f"><div class="dot"></div><div><b>3:45　合影留念</b><span>拍张合影，照片发到群里</span></div></div>
+          </div>
+        </div>
+        <div class="sec-t">往期留影</div>
+        <div class="gallery">
+          <div class="ph" style="background:linear-gradient(135deg,#B9C6D8,#7E93AD);">📷</div>
+          <div class="ph" style="background:linear-gradient(135deg,#D8C6A5,#AC9066);">🖼️</div>
+          <div class="ph" style="background:linear-gradient(135deg,#E8B4B8,#C97B84);">🙂</div>
+        </div>
+        <div class="fee">这场不收钱，茶水自理</div>
+        <div style="height:10px"></div>
+      </div>
+      <div class="footer">
+        <div class="duo">
+          <div class="half" onclick="toast('演示：联系组织者（打电话或留言）')">💬 咨询</div>
+          <div class="half" onclick="toast('演示：转发到微信好友或群里')">↗ 分享</div>
+        </div>
+        <div class="btn" onclick="joinFree()">我要来</div>
+      </div>
+    </div>
+
+    <!-- ④ 报名确认 -->
+    <div class="page" id="p-pay">
+      <div class="dwrap">
+        <div class="back" onclick="go('p-detail')">← 返回</div>
+        <div style="font-size:22px;font-weight:700;margin-top:10px;letter-spacing:1px;">确认一下</div>
+        <div class="sum">
+          <div class="row"><div class="lbl">活动</div><div class="val">人民公园看银杏</div></div>
+          <div class="row"><div class="lbl">时间</div><div class="val">11月12日 周三 上午 9:30</div></div>
+          <div class="row"><div class="lbl">姓名</div><div class="val">王淑华 <span style="font-size:13px;color:var(--muted);">（填过一次，以后自动带出）</span></div></div>
+          <div class="row"><div class="lbl">电话</div><div class="val">138****2216</div></div>
+          <div class="price"><span class="l">活动费（含茶水）</span><span class="r">¥25.00</span></div>
+        </div>
+        <div class="tip">活动前一天可免费取消，钱原路退回微信<br>到场报名字就行，不用出示任何码</div>
+      </div>
+      <div class="footer"><div class="btn" onclick="pay()">确认支付 ¥25</div></div>
+      <div class="loading" id="loading"><div class="box">正在跳转微信支付…</div></div>
+    </div>
+
+    <!-- ⑤ 报名成功 -->
+    <div class="page" id="p-done">
+      <div class="dwrap" style="padding-top:50px;">
+        <div class="okwrap">
+          <div class="okc">✓</div>
+          <div class="okt">报上了！</div>
+          <div class="oks">11月12日 周三　上午 9:30<br>人民公园东门　·　已付 25 元</div>
+          <div class="oktip">到场报名字就行<br>不用出示任何码</div>
+        </div>
+      </div>
+      <div class="footer">
+        <div class="duo">
+          <div class="half" onclick="toast('演示：转发到微信好友或群里')">↗ 分享给朋友</div>
+          <div class="half" onclick="go('p-mine');switchTab('mine')">我的报名</div>
+        </div>
+        <div class="btn ghost small" onclick="go('p-list')">回活动列表</div>
+      </div>
+    </div>
+
+    <!-- ⑥ 消息 -->
+    <div class="page" id="p-msg">
+      <div class="mine">
+        <div class="pt">消息</div>
+        <div style="font-size:14px;color:var(--muted);margin-top:8px;">组织者发的通知都在这里，点开看详情</div>
+        <div id="msglist"></div>
+        <div class="adm-note" style="margin-top:18px;">消息只来自组织者，陌生人发不了消息给你——不会收到任何推销和骚扰。活动前一天、当天早上，这里都会提醒你。</div>
+      </div>
+    </div>
+
+    <!-- ⑦ 我的 -->
+    <div class="page" id="p-mine">
+      <div class="mine">
+        <div class="pt">我的</div>
+        <div class="minecard">
+          <div class="avatar">王</div>
+          <div style="flex:1;">
+            <div style="font-size:18px;font-weight:700;">王淑华</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:3px;">138****2216</div>
+          </div>
+        </div>
+        <div style="margin-top:20px;font-size:14px;color:var(--muted);letter-spacing:.5px;">报过的活动</div>
+        <div class="minecard" id="my-card" style="display:none;cursor:pointer;" onclick="go('p-done')">
+          <div style="flex:1;">
+            <div style="font-size:17px;font-weight:700;">人民公园看银杏</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:4px;">11月12日 周三 · 上午 9:30</div>
+          </div>
+          <div class="tag paid">已报名 ✓ 已付</div>
+        </div>
+        <div class="minecard" id="my-card2" style="display:none;">
+          <div style="flex:1;">
+            <div style="font-size:17px;font-weight:700;">我收藏的 30 张老成都照片</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:4px;">11月19日 周三 · 下午 2:30</div>
+          </div>
+          <div class="tag free">已报名 ✓ 免费</div>
+        </div>
+        <div class="minecard" id="my-card3" style="display:none;">
+          <div style="flex:1;">
+            <div style="font-size:17px;font-weight:700;">沿锦江走一段</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:4px;">11月5日 周四 · 已结束</div>
+          </div>
+          <div class="tag free">已参加</div>
+        </div>
+        <div id="my-empty" style="margin-top:14px;font-size:14px;color:var(--muted);text-align:center;padding:20px 0;">还没报过活动，去首页看看 ↑</div>
+        <div class="adm-entry" onclick="go('p-adm')">🔑 <b>组织者入口</b>（只有你能看到）</div>
+      </div>
+    </div>
+
+    <!-- ⑧ 组织者后台 -->
+    <div class="page" id="p-adm">
+      <div class="dwrap">
+        <div class="back" onclick="go('p-mine')">← 返回</div>
+        <div style="font-size:22px;font-weight:700;margin-top:10px;">人民公园看银杏 · 名单</div>
+        <div style="font-size:14px;color:var(--muted);margin-top:6px;">12 人已付 · 1 人未付 · 还剩 7 个位置</div>
+        <div class="rows" style="margin-top:14px;">
+          <div style="padding:0 15px;">
+            <div class="adm-row"><div class="avatar">王</div><div class="nm"><b>王淑华</b><span>138****2216 · 微信号 wsh1962</span></div><div class="tag paid">已付 ✓</div><div class="act" onclick="toast('演示：直接拨出电话')">📞 打电话</div></div>
+            <div class="adm-row"><div class="avatar">李</div><div class="nm"><b>李国富</b><span>139****0857 · 微信号 lgf58</span></div><div class="tag paid">已付 ✓</div><div class="act" onclick="toast('演示：微信号已复制')">复制微信</div></div>
+            <div class="adm-row"><div class="avatar">陈</div><div class="nm"><b>陈秀英</b><span>180****3390</span></div><div class="tag free">未付</div><div class="act" onclick="toast('演示：直接拨出电话')">📞 打电话</div></div>
+          </div>
+        </div>
+        <div class="sec-t">发一场新活动，填这些</div>
+        <div class="pub-fields">
+          <span>标题</span><span>时间</span><span>集合地点</span><span>费用</span><span>人数上限</span>
+          <span>怎么玩说明</span><span>📸 封面图</span><span>📸 往期照片</span><span>所属分类</span>
+        </div>
+        <div class="adm-note">「怎么玩」和封面图就是详情页那一大块——发布时写清楚、传好图，大家点进去就明白这场好不好玩。点 + 号发布，只有你的微信能看到这个入口。</div>
+      </div>
+      <div class="footer"><div class="btn ghost small" onclick="toast('演示：导出名单成功')">导出这份名单</div></div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <div class="tabbar" id="tabbar">
+    <div class="tab on" id="tab-home" onclick="go('p-list');switchTab('home')">
+      <div class="ico">▦</div><div class="t">活动</div>
+    </div>
+    <div class="tab" id="tab-msg" style="position:relative;" onclick="openMsg()">
+      <div class="dot-badge" id="msg-dot"></div>
+      <div class="ico">💬</div><div class="t">消息</div>
+    </div>
+    <div class="tab" id="tab-mine" onclick="go('p-mine');switchTab('mine')">
+      <div class="ico">◍</div><div class="t">我的</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function go(id){
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+    document.getElementById(id).classList.add('on');
+    document.getElementById('tabbar').classList.toggle('hidden', id==='p-done');
+  }
+  function switchTab(which){
+    document.getElementById('tab-home').classList.toggle('on', which==='home');
+    document.getElementById('tab-msg').classList.toggle('on', which==='msg');
+    document.getElementById('tab-mine').classList.toggle('on', which==='mine');
+  }
+
+  /* ---- 消息：组织者发的通知 ---- */
+  var msgs = [
+    {ico:'🍂', t:'明天银杏活动，记得这些', s:'明早 9:15 人民公园东门集合，穿好走的鞋、带上水杯。今晚上看天气预报有小雨，我们备了几把伞，不用自己带。', d:'今天 18:40', go:'p-detail', isNew:true},
+    {ico:'📷', t:'上周活动的照片传好了', s:'「沿锦江走一段」42 张照片已上传，长按就能保存到手机、发到群里。这周走得慢的张阿姨也拍得很好。', d:'昨天 20:15', go:'p-mine', isNew:true, readCard:'my-card3'}
+  ];
+  function renderMsgs(){
+    var box=document.getElementById('msglist');
+    box.innerHTML='';
+    msgs.forEach(function(m,i){
+      var el=document.createElement('div');
+      el.className='msg-card'+(m.isNew?'':' read');
+      el.innerHTML='<div class="msg-ico">'+m.ico+'</div><div class="msg-bd">'+
+        '<div class="msg-t">'+m.t+(m.isNew?'<span class="msg-new">新</span>':'')+'</div>'+
+        '<div class="msg-s">'+m.s+'</div><div class="msg-d">'+m.d+'</div></div>';
+      el.onclick=function(){
+        if(m.readCard){document.getElementById(m.readCard).style.display='flex';}
+        go(m.go);
+      };
+      box.appendChild(el);
+    });
+    var hasNew=msgs.some(function(m){return m.isNew;});
+    document.getElementById('msg-dot').classList.toggle('on', hasNew);
+  }
+  function openMsg(){
+    go('p-msg'); switchTab('msg');
+    msgs.forEach(function(m){m.isNew=false;});
+    renderMsgs();
+  }
+  function addMsg(ico,t,s){
+    var now=new Date();
+    var hh=('0'+now.getHours()).slice(-2), mm=('0'+now.getMinutes()).slice(-2);
+    msgs.unshift({ico:ico,t:t,s:s,d:'刚刚',go:'p-done',isNew:true});
+    renderMsgs();
+    toast('通知已发到「消息」里');
+  }
+
+  function pay(){
+    document.getElementById('loading').classList.add('on');
+    setTimeout(function(){
+      document.getElementById('loading').classList.remove('on');
+      document.getElementById('my-card').style.display='flex';
+      document.getElementById('my-empty').style.display='none';
+      go('p-done');
+      addMsg('✓','报名成功：人民公园看银杏','你已报名 11月12日 周三上午 9:30 的活动，已付 25 元。活动前一天我们会再提醒你时间和集合地点。');
+    }, 900);
+  }
+  function joinFree(){
+    document.getElementById('my-card2').style.display='flex';
+    document.getElementById('my-empty').style.display='none';
+    toast('报上了！名单里已经加上你');
+    addMsg('📷','报名成功：我收藏的 30 张老成都照片','你已报名 11月19日 周三下午 2:30 的活动。这场不收钱，欢迎带几张自己的老照片来。');
+  }
+  var toastTimer;
+  function toast(msg){
+    var t=document.getElementById('toast');
+    t.textContent=msg; t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(function(){t.classList.remove('show');},1900);
+  }
+  document.querySelectorAll('.cat').forEach(function(c){
+    c.onclick=function(){
+      document.querySelectorAll('.cat').forEach(function(x){x.classList.remove('on');});
+      c.classList.add('on');
+      var cat=c.dataset.c;
+      document.querySelectorAll('#elist .card').forEach(function(k){
+        k.style.display=(cat==='all'||k.dataset.cat===cat)?'flex':'none';
+      });
+      toast(cat==='all'?'看全部活动':'只看这类');
+    };
+  });
+  document.querySelectorAll('.themes button').forEach(function(b){
+    b.onclick=function(){
+      document.body.className=b.dataset.t;
+      document.querySelectorAll('.themes button').forEach(function(x){x.classList.remove('on');});
+      b.classList.add('on');
+    };
+  });
+  renderMsgs();
+</script>
+</body>
+</html>
