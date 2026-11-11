@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>小程序预览 v3 · 粗门式结构</title>
+<title>走，出去耍</title>
 <style>
   :root{
     --paper:#FAF6EF; --card:#FFFFFF; --ink:#2B2118; --ink2:#6E6152;
@@ -628,5 +628,15 @@
   });
   renderMsgs();
 </script>
+
+<style id="mobile-mode">
+  /* 手机全屏版：去掉演示外壳，让它在真机上就是 App 的样子 */
+  body{padding:0 !important;background:var(--paper) !important;display:block !important;min-height:100dvh;}
+  .hd{display:none !important;}
+  .phone{width:100vw !important;max-width:100vw !important;height:100dvh !important;
+    border-radius:0 !important;box-shadow:none !important;margin:0 !important;}
+  .sb{display:none !important;}
+  .toast{bottom:90px !important;}
+</style>
 </body>
 </html>
